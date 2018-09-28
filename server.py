@@ -1,20 +1,56 @@
 # _*_ coding:utf-8 _*_
+from __future__ import division
+from socket import *
 import os
 import zipfile
-from socket import *
 import _thread
+import sys
+import time
+
+file_size = 0
+BarSymbol = '█'
+OutputSymbol = '|'
+SendDataLen = 0
+AloneBarNum = 0
+#percent 0 - 100
+def set_bar(percent):
+	global BarSymbol
+	global OutputSymbol
+	OutputSymbol = '|'
+	if percent <= 100:
+		index = percent
+		while index > 0:
+			index = index - 3
+			OutputSymbol = OutputSymbol + BarSymbol
+	if percent < 100 and percent >= 0:
+		sys.stdout.write(str(percent)+'% '+OutputSymbol+'->'+ "\r")
+	elif percent ==100:
+		sys.stdout.write(str(percent)+'% '+OutputSymbol+'|'+ "\r")
+	else:
+		pass
+	sys.stdout.flush()
 
 def tcplinkdata(skt,addr):
-	#print(skt)
+	global BarSymbol
+	global AloneBarNum
+	global SendDataLen
+	global file_size
+	print('Zip files...')
 	createZip(r'' + folder + '\\')
+	skt.send(bytes(str(file_size),encoding='utf-8'))
 	print(addr,"Connected succeed.")
 	print('Sending files...')
 	with open('./SendFiles.zip', 'rb') as f:
 		for data in f:
-		#print(data)
+			SendDataLen = SendDataLen + len(data)
+			bar_num = int(float(SendDataLen)/float(file_size) * 100)
+			if bar_num > AloneBarNum:
+				AloneBarNum = bar_num
+				set_bar(bar_num)
 			skt.send(data)
 	f.close()
 	skt.close()
+	print("\n")
 	print("Send files succeed.\n")
 	PrepareFile()
 	print("Wait client connect...")
@@ -30,15 +66,18 @@ def get_host_ip():
 	return ip
 
 def createZip(filePath):
-    fileList=[]
-    target = 'SendFiles.zip'
-    newZip = zipfile.ZipFile(target,'w')
-    for dirpath,dirnames,filenames in os.walk(filePath):
-        for filename in filenames:
-            fileList.append(os.path.join(dirpath,filename))
-    for tar in fileList:
-        newZip.write(tar,tar[len(filePath):])#tar为写入的文件，tar[len(filePath)]为保存的文件名
-    newZip.close()
+	global file_size
+	fileList=[]
+	target = 'SendFiles.zip'
+	newZip = zipfile.ZipFile(target,'w')
+	for dirpath,dirnames,filenames in os.walk(filePath):
+		for filename in filenames:
+			fileList.append(os.path.join(dirpath,filename))
+	for tar in fileList:
+		newZip.write(tar,tar[len(filePath):])
+	newZip.close()
+	file_size = os.path.getsize('./SendFiles.zip')
+	#print(file_size)
 
 def PrepareFile():
 	if os.path.isfile('SendFiles.zip') == True:
